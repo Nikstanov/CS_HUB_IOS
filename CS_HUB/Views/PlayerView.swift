@@ -17,6 +17,8 @@ struct PlayerView: View {
     @State var team_name = ""
     @State var isLiked = false
     @State var newReview = ""
+    @State var returnBack = false
+    @State var error : String = ""
     
     //private var id:Int
     private var newPlayer: Bool
@@ -160,10 +162,8 @@ struct PlayerView: View {
                         self.savingPlayer.toggle()
                         dataManager.savePlayer(player: Player(id: player.id, full_name: full_name, nick_name: nick_name, birth_date: birth_date, team_name: team_name, nationality: nationality)){
                             error in
-                            if error != "" {
-                                
-                            }
                             self.savingPlayer.toggle()
+                            self.error = error
                         }
                     } label: {
                         Text("Save")
@@ -175,6 +175,9 @@ struct PlayerView: View {
                             )
                             .foregroundColor(.white)
                     }
+                    .alert(isPresented: $returnBack){
+                        Alert(title: Text("Result"),
+                              message: Text(error == "" ? "Saved" : error) , dismissButton: .default(Text("OK")))}
                 }
                 
                 if !newPlayer{
@@ -198,8 +201,10 @@ struct PlayerView: View {
                             ForEach(dataManager.reviews, id: \.self){
                                 item in
                                     VStack{
-                                        Text(item.name).bold().multilineTextAlignment(.leading)
-                                        Text(item.text).multilineTextAlignment(.leading)
+                                        HStack{
+                                            Text(item.name).bold()}
+                                        HStack{
+                                            Text(item.text)}
                                     }
                             }
                         }
@@ -249,7 +254,3 @@ struct PlayerView_Previews: PreviewProvider {
         PlayerView(false)
     }
 }
-
-
-
-

@@ -11,6 +11,7 @@ import SwiftUI
 import Firebase
 import FirebaseStorage
 import FirebaseDatabase
+import Network
 
 class APIManager : ObservableObject{
     
@@ -20,6 +21,7 @@ class APIManager : ObservableObject{
     @Published var liked_players = Set<String>()
     @Published var reviews:[Review] = []
     
+    var PlayersDownloaded = false
     var reviewListener : ListenerRegistration?
     var likesListener : ListenerRegistration?
     
@@ -32,6 +34,25 @@ class APIManager : ObservableObject{
     }
     
     init(){
+        NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main){
+            _ in
+            UserDefaults.standard.set(self.players, forKey: "players")
+        }
+        /*
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { path in
+            if path.status == .satisfied {
+                
+            }
+            else{
+                 
+            }
+        }
+         */
+        if let savedData = UserDefaults.standard.value(forKey: "players") as? [Player] {
+            players = savedData
+        }
+        
         fetchTeams()
         fetchUser()
         fetchPlayers()
