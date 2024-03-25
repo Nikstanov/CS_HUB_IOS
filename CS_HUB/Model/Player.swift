@@ -14,4 +14,5 @@ struct Player: Hashable, Codable, Identifiable{
     let nick_name:String
     let birth_date:Date
     let team_name:String
+    let nationality:String
 }

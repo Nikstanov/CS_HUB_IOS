@@ -66,6 +66,7 @@ struct ContentView: View {
                             catch {
                                 print("Some error with sign out")
                             }
+                            dataManager.unfecthLikedPlayers()
                             signOut.toggle()
                         } label: {
                             Text("Sign out")

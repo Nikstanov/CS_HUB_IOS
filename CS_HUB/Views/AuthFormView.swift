@@ -15,6 +15,7 @@ struct AuthFormView: View {
     @State private var password : String = ""
     @State private var userIsLoggedIn: Bool = false
     @State private var userIsSignIn: Bool = false
+    @State private var isLoading: Bool = false
     
     @State private var firstname : String = ""
     @State private var lastname : String = ""
@@ -28,12 +29,18 @@ struct AuthFormView: View {
             ContentView()
         }
         else{
-            if userIsSignIn {
-                contentSignIn
+            if isLoading {
+                ProgressView()
             }
             else{
-                contentSignUp
+                if userIsSignIn {
+                    contentSignIn
+                }
+                else{
+                    contentSignUp
+                }
             }
+            
         }
     }
     
@@ -140,16 +147,21 @@ struct AuthFormView: View {
         }
         .frame(width: 350)
         .onAppear(){
+            self.isLoading = false
             Auth.auth().addStateDidChangeListener {
                 auth, user in
                 if user != nil {
-                    userIsLoggedIn.toggle()
+                    userIsLoggedIn = true
+                    self.isLoading = false
+                    dataManager.fetchUser()
                 }
             }
         }
         .onChange(of: showingAlert){
             newVal in
-            if !newVal {alerts.removeAll()}
+            if !newVal {
+                alerts.removeAll()
+            }
         }
     }
     
@@ -206,18 +218,20 @@ struct AuthFormView: View {
         }
         .frame(width: 350)
         .onAppear(){
-            /*
             Auth.auth().addStateDidChangeListener {
                 auth, user in
                 if user != nil {
-                    userIsLoggedIn.toggle()
+                    userIsLoggedIn = true
+                    self.isLoading = false
+                    dataManager.fetchUser()
                 }
             }
-            */
         }
         .onChange(of: showingAlert){
             newVal in
-            if !newVal {alerts.removeAll()}
+            if !newVal {
+                alerts.removeAll()
+            }
         }
     }
     
@@ -230,41 +244,43 @@ struct AuthFormView: View {
     func register(){
         guard isValidEmail(email) else{
             alerts.append("Invalid email")
-            showingAlert.toggle()
+            self.showingAlert = true
             return
         }
         guard password.count >= 8 else{
             alerts.append("password length should be >= 8")
-            showingAlert.toggle()
+            self.showingAlert = true
             return
         }
         dataManager.createUser(email: email, password: password, firstname: firstname, lastname: lastname, country: country){
             error in
             alerts.append(error)
-            showingAlert.toggle()
+            self.showingAlert = true
         }
     }
     
     func login(){
+        self.isLoading = true
         guard isValidEmail(email) else{
             alerts.append("Invalid email")
-            showingAlert.toggle()
+            self.showingAlert = true
             return
         }
         guard password.count >= 8 else{
             alerts.append("password length should be >= 8")
-            showingAlert.toggle()
+            self.showingAlert = true
+            self.isLoading = false
             return
         }
         Auth.auth().signIn(withEmail: email, password: password){
             result, error in
             guard error == nil else{
                 self.alerts.append(error!.localizedDescription)
-                self.showingAlert.toggle()
+                self.showingAlert = true
                 print(error!.localizedDescription)
+                self.isLoading = false
                 return
             }
-            
         }
     }
 }

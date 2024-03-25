@@ -17,6 +17,11 @@ class APIManager : ObservableObject{
     @Published var teams: [Team] = []
     @Published var players: [Player] = []
     @Published var user = User(id: "0",email: "", firstname: "",lastname: "",country: "")
+    @Published var liked_players = Set<String>()
+    @Published var reviews:[Review] = []
+    
+    var reviewListener : ListenerRegistration?
+    var likesListener : ListenerRegistration?
     
     private func configuration() -> Firestore{
         var db: Firestore!
@@ -30,6 +35,16 @@ class APIManager : ObservableObject{
         fetchTeams()
         fetchUser()
         fetchPlayers()
+        Auth.auth().addStateDidChangeListener {
+            auth, user in
+            if user != nil {
+                self.fetchUser()
+                self.fetchLikedPlayers()
+            }
+            else{
+                self.likesListener?.remove()
+            }
+        }
     }
     
     func fetchTeams(){
@@ -89,8 +104,9 @@ class APIManager : ObservableObject{
                     let nick_name = data["nick_name"] as? String ?? ""
                     let birth_date = (data["birth_date"] as? Timestamp ?? Timestamp()).dateValue()
                     let team_name = data["team_name"] as? String ?? ""
+                    let nationality = data["nationality"] as? String ?? ""
                     
-                    let player = Player(id: id, full_name: full_name, nick_name: nick_name, birth_date: birth_date, team_name: team_name)
+                    let player = Player(id: id, full_name: full_name, nick_name: nick_name, birth_date: birth_date, team_name: team_name, nationality: nationality)
                     self.players.append(player)
                 }
                 if(diff.type == .modified){
@@ -138,16 +154,128 @@ class APIManager : ObservableObject{
         }
     }
     
-    func saveUser(id: String){
+    func saveUser(newUser : User){
         let db = configuration()
         guard Auth.auth().currentUser != nil else {return}
-        let ref = db.collection("users").document(id)
-        ref.setData(["email" : user.email, "firstname" : user.firstname, "lastname" : user.lastname, "country" : user.country]) { error in
+        let ref = db.collection("users").document(user.id)
+        ref.setData(["email" : newUser.email, "firstname" : newUser.firstname, "lastname" : newUser.lastname, "country" : newUser.country]) { error in
             if let error = error {
                 print(error.localizedDescription)
             }
         }
         fetchUser()
+    }
+    
+    func unfecthLikedPlayers(){
+        self.liked_players.removeAll()
+        likesListener?.remove()
+    }
+    
+    func fetchLikedPlayers(){
+        let db = configuration()
+        let userId = Auth.auth().currentUser!.uid
+        let ref = db.collection("users").document(userId).collection("liked_players")
+        likesListener?.remove()
+        likesListener = ref.addSnapshotListener { querySnapshot, error in
+            guard let snapshot = querySnapshot else{
+                return
+            }
+            snapshot.documentChanges.forEach{
+            diff in
+                if(diff.type == .added){
+                    let team_name = diff.document.documentID
+                    self.liked_players.insert(team_name)
+                }
+                if(diff.type == .modified){
+                }
+                if(diff.type == .removed){
+                    let team_name = diff.document.documentID
+                    self.liked_players.remove(team_name)
+                }
+            }
+        }
+    }
+    
+    func savePlayer(player: Player, completion: @escaping (String) -> Void){
+        let db = configuration()
+        let ref = db.collection("players").document(player.nick_name)
+        ref.setData(["birth_date" : player.birth_date, "full_name" : player.full_name, "nationality" : player.nationality, "team_name" : player.team_name, "nick_name": player.nick_name]) { error in
+            if let error = error {
+                print(error.localizedDescription)
+                completion(error.localizedDescription)
+                return
+            }
+            completion("")
+        }
+    }
+    
+    func addLike(playerName:String){
+        let db = configuration()
+        let ref = db.collection("users").document(Auth.auth().currentUser!.uid).collection("liked_players").document(playerName)
+        
+        ref.setData([:]) { error in
+            if let error = error {
+                print(error.localizedDescription)
+            }
+        }
+    }
+    
+    func saveComment(text:String, playerName:String){
+        let db = configuration()
+        let ref = db.collection("players").document(playerName).collection("reviews").document(user.id)
+        
+        ref.setData(["text":text, "name":(user.firstname + " " + user.lastname)]) { error in
+            if let error = error {
+                print(error.localizedDescription)
+            }
+        }
+    }
+    
+    func removeLike(playerName:String){
+        let db = configuration()
+        db.collection("users").document(user.id).collection("liked_players").document(playerName).delete()
+    }
+    
+    func unsubscribeReview(){
+        reviews.removeAll()
+        reviewListener?.remove()
+    }
+    
+    func subscribeReviews(playerName : String){
+        reviews.removeAll()
+        
+        let db = configuration()
+        let ref = db.collection("players").document(playerName).collection("reviews")
+        reviewListener = ref.addSnapshotListener { querySnapshot, error in
+            guard let snapshot = querySnapshot else{
+                return
+            }
+            snapshot.documentChanges.forEach{
+            diff in
+                if(diff.type == .added){
+                    let data = diff.document.data()
+                    
+                    let text = data["text"] as? String ?? ""
+                    let name = data["name"] as? String ?? ""
+                    let id = diff.document.documentID
+                    
+                    let review = Review(id: self.reviews.count,userId:id ,text:text, name: name)
+                    self.reviews.append(review)
+                }
+                if(diff.type == .modified){
+                }
+                if(diff.type == .removed){
+                    let id = diff.document.documentID
+                    
+                    for index in 0...self.reviews.count {
+                        if self.reviews[index].userId == id {
+                            self.reviews.remove(at: index)
+                            break
+                        }
+                    }
+                }
+            }
+        }
     }
     
     func createUser(email: String, password: String, firstname: String, lastname: String, country: String,  completion: @escaping (String) -> Void) {
@@ -159,7 +287,7 @@ class APIManager : ObservableObject{
                 return
             }
             self.user = User(id: result!.user.uid, email: email, firstname: firstname, lastname: lastname, country: country)
-            self.saveUser(id: result!.user.uid)
+            self.saveUser(newUser: self.user)
         }
     }
 

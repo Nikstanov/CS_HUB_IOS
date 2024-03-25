@@ -14,12 +14,14 @@ struct UserView: View {
     @State var firstname : String
     @State var lastname : String
     @State var country : String
+    var user_id : String
     
     init(_ user : User){
         self.email = user.email
         self.firstname = user.firstname
         self.lastname = user.lastname
         self.country = user.country
+        self.user_id = user.id
     }
     
     var body: some View {
@@ -80,7 +82,7 @@ struct UserView: View {
             }
             
             Button{
-                
+                dataManager.saveUser(newUser: User(id: user_id, email: email, firstname: firstname, lastname: lastname, country: country))
             } label: {
                 Text("Save")
                     .bold()
@@ -95,7 +97,7 @@ struct UserView: View {
             .offset(y: 110)
         }
         .frame(width: 350)
-        .navigationBarTitle("Players")
+        .navigationBarTitle("User")
     }
 }
 
